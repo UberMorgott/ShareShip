@@ -1,5 +1,7 @@
 # ShareShip — Open Any Ship's Management UI for Any Player
 
+**Download on Nexus Mods:** https://www.nexusmods.com/windrose/mods/147
+
 In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q** on the wheel to open the ship's management UI. ShareShip removes that single gate — any player who can reach the helm can now manage any ship's cargo hold, slot upgrades, and configuration. Owner-based systems outside the management UI (respawn, permanent customization, insurance, naming) are untouched; this mod only changes who can open the screen.
 
 ## Features
