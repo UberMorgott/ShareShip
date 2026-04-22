@@ -58,9 +58,9 @@ The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorg
 - **Known conflicts:** none. Any other mod that overrides the exact same DataAsset (`DA_InteractionOption_ShipManagement`) will fight with this one — load order (alphabetical inside `~mods`) decides the winner.
 - **Save-safe.** No replicated properties added, no schema change, no sidecar files.
 
-## Known issues
+## Cosmetic note
 
-- **Owner in dock loses access to the dock-specific Management UI.** Since v1.1, the helm only ever advertises one management option — the regular "Ship Management" screen. If you are the owner of a docked ship and the dock offers its own specialised screen with repair/upgrade services, you won't see it while docked. Undock first to access those dock-only services, then re-dock. This is an accepted trade-off for eliminating the v1.0 duplicate-Q bug at the helm level; restoring the docked-variant UI cleanly would require a server-side runtime hook that isn't available yet (needs developer tooling that Windrose's anti-cheat currently blocks from running client-side).
+- When docked, the Q prompt label reverts to "Ship Management" instead of "Ship Management (docked)". Cosmetic only — the management UI itself is identical in both variants (same cargo hold, slot upgrades, etc.). No functional feature is lost.
 
 ## Build from source
 

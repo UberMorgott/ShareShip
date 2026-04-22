@@ -14,8 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Pak triple sizes** grow from 347 + 1643 + 501 bytes (v1.0, ~2.5 KB) to 347 + 2434 + 673 bytes (v1.1, ~3.4 KB) because the override now carries two cooked DataAssets instead of one.
 - **`mod.json`** version bumped from `0.0.1` to `1.1.0`.
 
-### Known issues
-- **Owner in dock no longer sees the dock-specific "Ship Management (docked)" UI.** They see the regular Management UI instead. If the dock's specialised variant exposes dock-only features (repair slots, dock services, etc.) those are unreachable while docked — workaround is to undock first. A future v1.2 could restore the dock variant for owners only via a server-side runtime hook, but that requires developer tooling (`Mappings.usmap` via server-side UE4SS) that isn't available yet.
+### Cosmetic note
+- When docked, the Q prompt label reverts to "Ship Management" instead of "Ship Management (docked)". Cosmetic only — the management UI itself is identical in both variants (same cargo hold, slot upgrades, etc.). No functional feature is lost.
 
 ### Tested
 - Listen-server smoke test on Windows client (2026-04-22). All four test-matrix cases (owner / non-owner × docked / not-docked) resolve to one Q "Management" prompt. v1.0's duplicate-Q in dock is gone.
