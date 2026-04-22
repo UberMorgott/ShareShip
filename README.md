@@ -10,7 +10,7 @@ In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q*
 - Opens the full management UI: cargo hold, upgrades, slots, and other owner-only views.
 - **Server-authoritative** — the dedicated server's copy is what matters. Clients who also install the pak additionally see the Q prompt render locally on non-owned ships.
 - **No Lua, no UE4SS, no runtime injection.** ShareShip is a pure cooked-asset override, so it coexists with Windrose's anti-cheat (which does not scan cooked pak contents).
-- Tiny. Total install size is **~2.5 KB** (three files: `.pak` + `.ucas` + `.utoc`).
+- Tiny. Total install size is **~3.4 KB** (three files: `.pak` + `.ucas` + `.utoc`).
 
 ## Install
 
@@ -44,11 +44,12 @@ In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q*
 
 ## How it works (brief)
 
-ShareShip ships a single cooked `DataAsset` override at
-`/Game/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement`.
-The patched `.uasset` differs from the retail file by **exactly two bytes** in the `FObjectImport` table: the entry that used to point at `R5Requirement_CanOpenShipManagement` (the owner check) now points at `R5IsTargetAliveRequirement`, which is already imported by the same DataAsset and returns true for any live ship. The interaction's other gating requirements (boarding state, target-alive, common-composition) are kept intact, so the only behavioural change is that the owner check is bypassed.
+ShareShip ships two cooked-asset overrides inside a single IoStore pak triple:
 
-The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorgott/Windrose-Modding-Toolkit) contains the full reverse-engineering notes, SDK-dump workflow, and the Go-based `.uasset` patch utilities used to produce this override.
+1. **`DA_InteractionOption_ShipManagement`** — the patched `.uasset` differs from the retail file by **exactly two bytes** in the `FObjectImport` table: the entry that used to point at `R5Requirement_CanOpenShipManagement` (the owner check) now points at `R5IsTargetAliveRequirement`, which is already imported by the same DataAsset and returns true for any live ship. The interaction's other gating requirements (boarding state, target-alive, common-composition) are kept intact, so the only behavioural change is that the owner check is bypassed.
+2. **`DA_InteractionTarget_ShipSteeringWheel`** (new in v1.1) — a 4-byte edit to the helm target's `.uexp` sets the third `FPackageIndex` entry in the helm's `Options` TArray to null. That entry used to reference `DA_InteractionOption_ShipDockManagement`, the dock-specific Management option. With it nulled, the engine's UI skips the empty slot and the helm only ever advertises two options (Steering on E, Management on Q) instead of three. This removes the v1.0 duplicate-Q-prompt regression that appeared when a ship was docked.
+
+The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorgott/Windrose-Modding-Toolkit) contains the full reverse-engineering notes, SDK-dump workflow, and the Go-based `.uasset` / `.uexp` patch utilities used to produce this override.
 
 ## Compatibility
 
@@ -59,7 +60,7 @@ The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorg
 
 ## Known issues
 
-- **Duplicate prompt when the ship is docked.** If a ship is in a dock, the helm shows two Q prompts simultaneously: "Ship Management" (this mod's always-on variant) and "Ship Management (docked)" (the vanilla dock-specific variant). The vanilla `CanOpenShipManagement` requirement contained an embedded dock-mutex in addition to the owner check; when we replaced it with a trivially-true requirement we lost both. Out of dock the prompt count is correct (one Q). A fix is planned for v0.2 once the composition `CheckType = Not` wrap is implemented at `.uexp` byte level — details tracked in the toolkit repo. For now, in-dock players see an extra Q, which is harmless (both options open a functional UI).
+- **Owner in dock loses access to the dock-specific Management UI.** Since v1.1, the helm only ever advertises one management option — the regular "Ship Management" screen. If you are the owner of a docked ship and the dock offers its own specialised screen with repair/upgrade services, you won't see it while docked. Undock first to access those dock-only services, then re-dock. This is an accepted trade-off for eliminating the v1.0 duplicate-Q bug at the helm level; restoring the docked-variant UI cleanly would require a server-side runtime hook that isn't available yet (needs developer tooling that Windrose's anti-cheat currently blocks from running client-side).
 
 ## Build from source
 

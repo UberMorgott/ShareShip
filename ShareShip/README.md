@@ -7,8 +7,8 @@ This folder is the drop-in mod. Place it so that the pak triple lives under the 
 ```
 ShareShip/
     ShareShip_P.pak     # IoStore pak header (347 B)
-    ShareShip_P.ucas    # container data (1643 B)
-    ShareShip_P.utoc    # container TOC (501 B)
+    ShareShip_P.ucas    # container data (2434 B)
+    ShareShip_P.utoc    # container TOC (673 B)
     mod.json            # legacy UE4SS manifest, unused by the pak loader (kept for archival)
     Scripts/main.lua    # legacy UE4SS scaffold, unused by the pak loader (kept for archival)
     enabled.txt         # legacy UE4SS flag, unused by the pak loader (kept for archival)
