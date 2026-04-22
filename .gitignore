@@ -1,0 +1,22 @@
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Language / tooling
+node_modules/
+__pycache__/
+*.pyc
+
+# Build scratch
+build/output/
+tmp/
+scratch/
+
+# NOTE: *.pak, *.ucas, *.utoc are part of the shipped mod and must NOT be ignored.
