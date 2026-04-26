@@ -58,6 +58,16 @@ The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorg
 - **Known conflicts:** none. Any other mod that overrides the exact same DataAsset (`DA_InteractionOption_ShipManagement`) will fight with this one — load order (alphabetical inside `~mods`) decides the winner.
 - **Save-safe.** No replicated properties added, no schema change, no sidecar files.
 
+### Reports of conflicts — investigated and cleared
+
+After v1.1 a few users reported missing quest/discovery journal, fast-travel freezes on dedicated, or BackPacks10x being shadowed and pointed at ShareShip. Investigation cleared the mod:
+
+- ShareShip patches exactly two ship-related DataAssets in `/Interaction/`. No path overlap with BackPacks10x (`/ItemsLogic/Backpack/`) or ShipInventory10x (`/Plugins/R5BusinessRules/`).
+- A Ghidra decompile of the Windrose shipping binary shows the engine's pak / IoStore loader (`FPakPlatformFile::Mount`, `FFilePackageStoreBackend::Mount`, `FPakFile::Initialize`) is byte-for-byte identical to stock UE 5.6 — the container cannot affect what other paks load.
+- The same symptoms are independently reported on mods 31, 99, and 107 by users who never installed ShareShip. Real culprits identified: Vortex Mod Manager, a broken third-party packer batch that corrupted BackPacks10x / ShipInventory10x around 21–23 April 2026, and a separate "No Fog of War" pak.
+
+Full evidence with direct comment citations is in the [sticky comment on Nexus](https://www.nexusmods.com/windrose/mods/147?tab=posts#comment-168798341).
+
 ## Cosmetic note
 
 - When docked, the Q prompt label reverts to "Ship Management" instead of "Ship Management (docked)". Cosmetic only — the management UI itself is identical in both variants (same cargo hold, slot upgrades, etc.). No functional feature is lost.
