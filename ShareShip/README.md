@@ -9,12 +9,11 @@ ShareShip/
     ShareShip_P.pak     # IoStore pak header (347 B)
     ShareShip_P.ucas    # container data (2434 B)
     ShareShip_P.utoc    # container TOC (673 B)
-    mod.json            # legacy UE4SS manifest, unused by the pak loader (kept for archival)
-    Scripts/main.lua    # legacy UE4SS scaffold, unused by the pak loader (kept for archival)
-    enabled.txt         # legacy UE4SS flag, unused by the pak loader (kept for archival)
 ```
 
-Only the three `ShareShip_P.*` files are required at runtime. The rest is historical from an earlier UE4SS-Lua attempt that was abandoned because Windrose's anti-cheat blocks client-side UE4SS.
+These three files are the entire mod. ShareShip uses no Lua, no UE4SS, and no runtime injection — only a cooked-asset override loaded by the engine's stock IoStore pak loader, so it coexists with Windrose's anti-cheat.
+
+> **v1.1.1 note.** Earlier releases shipped extra `mod.json`, `enabled.txt`, and `Scripts/` files left over from an abandoned UE4SS-Lua prototype. Windrose's `R5JsonAssets` plugin auto-scans every `*.json` inside `~mods` directories and crashed during loading on the leftover manifest. If you have any of those files in your mod folder, delete them.
 
 ## Install
 

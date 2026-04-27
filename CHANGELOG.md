@@ -4,6 +4,28 @@ All notable changes to ShareShip are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-04-27 — Strip UE4SS leftovers from the release archive
+
+### Fixed
+- **Game freezes on the loading screen with a `R5JsonAssets` crash.** v1.1.0 (and v0.1.0) shipped three legacy UE4SS files alongside the IoStore triple — `mod.json`, `enabled.txt`, and `Scripts/main.lua` — kept "for archival" inside the release zip. They were never used by the IoStore pak loader, but Windrose's own `R5JsonAssets` plugin auto-scans every `*.json` it finds inside mounted `~mods` directories and tries to construct a `UObject` from each one. The UE4SS-style `mod.json` lacks the engine's expected `Class` field, so the plugin asserts:
+  ```
+  R5LogCheck: Class of type '' doesnt exists. Asset: /Game/Paks/~mods/ShareShip/mod
+  R5LogJsonAssets: Cannot create asset: '/Game/Paks/~mods/ShareShip/mod'
+  R5NoEntry: [json.exception.type_error.302] type must be string, but is null
+  R5NoEntry: Data inconsistent
+  ```
+  After the third `R5NoEntry` the engine's exception handler latches `Data inconsistent`, an internal `TR5BLPromise` is destroyed incomplete, and the loading screen wedges. Removing the three legacy files clears all four log errors and the mod mounts cleanly. Reproduced from a user-supplied `R5.log` against game build `0.10.0.3.104-256f9653` (Windrose `Version 0.10.0`, UE 5.6.1).
+
+### Removed
+- `ShareShip/mod.json`, `ShareShip/enabled.txt`, `ShareShip/Scripts/main.lua` from both the repository and the release archive.
+
+### Notes
+- **No `.pak` / `.ucas` / `.utoc` byte changes.** The cooked-asset overrides are bit-for-bit identical to v1.1.0 — only the surrounding archive was cleaned. SHA-256 of the three pak files is unchanged from v1.1.0.
+- **Existing v1.1.0 installs:** the simplest fix is to delete `mod.json`, `enabled.txt`, and the `Scripts/` folder out of `<install>\R5\Content\Paks\~mods\ShareShip\` and keep only the three `ShareShip_P.*` files. Reinstalling v1.1.1 does the same thing.
+
+### Credit
+- Thanks to the player who supplied the `R5.log` snapshot — the `R5LogJsonAssets` error pointed straight at the offending file.
+
 ## [1.1.0] - 2026-04-22 — Dock duplicate-prompt fix
 
 ### Fixed

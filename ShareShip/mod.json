@@ -1,7 +1,0 @@
-{
-  "name": "ShareShip",
-  "version": "1.1.0",
-  "author": "Morgott",
-  "description": "Allow non-owner players to enter another player's ship cargo hold in Windrose co-op.",
-  "main": "Scripts/main.lua"
-}
