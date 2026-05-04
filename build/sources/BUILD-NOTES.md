@@ -1,6 +1,12 @@
-# Patched `DA_InteractionOption_ShipManagement` — spec
+# Patched source assets — spec
 
-Authoritative description of the patch applied to the retail cooked DataAsset that gates opening the ship-management UI (Q on the helm). These two files are the output of step 3 in [`../README.md`](../README.md) and the input to the IoStore repack.
+Authoritative description of both patches applied to retail cooked DataAssets. These files are the input to the legacy V8B pak repack (see [`../README.md`](../README.md)).
+
+---
+
+## Patch 1: `DA_InteractionOption_ShipManagement` (v1.0+)
+
+The core patch that gates opening the ship-management UI (Q on the helm).
 
 ## Summary
 
@@ -105,20 +111,55 @@ repak.exe list ShareShip_P.pak
 # Expected exactly:
 #   R5/Content/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement.uasset
 #   R5/Content/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement.uexp
+#   R5/Content/Gameplay/Interaction/Params/Ship/DA_InteractionTarget_ShipSteeringWheel.uasset
+#   R5/Content/Gameplay/Interaction/Params/Ship/DA_InteractionTarget_ShipSteeringWheel.uexp
 ```
 
 ## `.uexp` risk analysis
 
 The `.uexp` blob references objects through `FPackageIndex` (unchanged by this patch) and *potentially* through `(FName.idx, FName.number)` pairs. A scan (`uexp_scan.go` in the toolkit) found a single speculative `idx=5, num=2` hit at `.uexp` offset `0x68`; at `num=2` it cannot be a real FName reference to `R5Requirement_CanOpenShipManagement`, which only ever appears with `num=0`. `retoc to-zen` round-trips the patched pair cleanly, confirming the `.uexp` still parses against the mutated import table.
 
+---
+
+## Patch 2: `DA_InteractionTarget_ShipSteeringWheel` (v1.1+)
+
+A 4-byte edit to the helm target's `.uexp` that removes the dock-specific Management option from the helm's `Options` TArray.
+
+### Summary
+
+- **Source asset:** `/Game/Gameplay/Interaction/Params/Ship/DA_InteractionTarget_ShipSteeringWheel` (cooked `.uasset` + `.uexp`, extracted from retail Windrose IoStore paks).
+- **Change:** null-patch the third `FPackageIndex` entry in the helm's `Options` TArray.
+- **Diff size:** 4 bytes in the `.uexp` at offset `0x14-0x17`. The `.uasset` is byte-identical to retail.
+- **Why:** In v1.0, when a ship was docked the helm showed two Q prompts — the mod's always-on "Ship Management" plus vanilla's dock-specific "Ship Management (docked)". This patch removes the dock option at source.
+
+### Byte-level diff
+
+The helm's 28-byte `.uexp` stores the `Options` TArray as three consecutive `FPackageIndex` int32s at offsets `0x0c-0x17`:
+
+| Offset (hex) | Field                        | Before (hex)   | After (hex)    |
+|-------------:|------------------------------|---------------:|---------------:|
+| `0x0c-0x0f`  | Options[0]: ShipSteering     | `f8 ff ff ff`  | `f8 ff ff ff`  |
+| `0x10-0x13`  | Options[1]: ShipManagement   | `f9 ff ff ff`  | `f9 ff ff ff`  |
+| `0x14-0x17`  | Options[2]: ShipDockMgmt     | `fa ff ff ff`  | `00 00 00 00`  |
+
+The null `FPackageIndex` (`0x00000000`) resolves to nullptr at runtime. The engine iterates the TArray, skips the null entry, and the helm only advertises two options (Steering on E, Management on Q). The dock-specific Management option never appears.
+
+### Tool
+
+Produced by `helm_options_null.go` / `patch_helm_options_null.exe` from the [Windrose-Modding-Toolkit](https://github.com/uberMorgott/Windrose-Modding-Toolkit).
+
+---
+
 ## Files in this folder
 
 | File | Size | Notes |
 |------|-----:|-------|
-| `DA_InteractionOption_ShipManagement.uasset` | 2736 B | 2 bytes differ from retail (offsets `0x7E6`, `0x7F2`). |
-| `DA_InteractionOption_ShipManagement.uexp`   |  142 B | Verbatim copy of retail. |
+| `DA_InteractionOption_ShipManagement.uasset`         | 2736 B | 2 bytes differ from retail (offsets `0x7E6`, `0x7F2`). Patch 1. |
+| `DA_InteractionOption_ShipManagement.uexp`           |  142 B | Verbatim copy of retail. |
+| `DA_InteractionTarget_ShipSteeringWheel.uasset`      |  —     | Byte-identical to retail. |
+| `DA_InteractionTarget_ShipSteeringWheel.uexp`        |   28 B | 4 bytes differ from retail (offset `0x14-0x17`). Patch 2. |
 
 ## Known limits
 
-- The patcher tool looks up the four target name strings by content. It refuses to patch any `.uasset` that doesn't contain all four.
+- The ShipManagement patcher tool looks up the four target name strings by content. It refuses to patch any `.uasset` that doesn't contain all four.
 - `FObjectImport` stride is assumed to be 32 bytes. If a future target asset uses the cooked layout with `PackageName` / `bImportOptional` fields (stride ≠ 32), the tool aborts with an explicit mismatch error.

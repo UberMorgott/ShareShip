@@ -4,6 +4,19 @@ All notable changes to ShareShip are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-05-04 — Format fix for 2026-04-30 engine update
+
+### Fixed
+- **Mod broken after Windrose engine update (2026-04-30).** The update tightened AsyncLoading2's export validation (`TemplateObject->IsA(LoadClass)`) which rejected the patched import redirect in Zen (IoStore) format. The export was skipped entirely, breaking both owner and non-owner ship management access. Repackaged as legacy V8B `.pak` which uses a different linker that resolves the redirect cleanly.
+
+### Changed
+- **Format switched from IoStore triple to single legacy V8B `.pak`.** Install now requires only one file (`ShareShip_P.pak`, ~5.3 KB) instead of three (`.pak` + `.ucas` + `.utoc`). Users upgrading from v1.1.x must delete the old `.ucas` and `.utoc` files.
+- Both patch mechanisms (v1.0 import redirect + v1.1 helm Options null-patch) are preserved unchanged in the legacy format. No gameplay or UX changes.
+
+### Tested
+- Client log verification (2026-05-04): pak mounts cleanly, zero `CreateExport` errors, zero `template object type` warnings.
+- Listen-server smoke test: owner and non-owner ship management works as expected.
+
 ## [1.1.1] - 2026-04-27 — Strip UE4SS leftovers from the release archive
 
 ### Fixed
@@ -46,9 +59,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Abandoned path (kept for transparency)
 - An earlier v1.1-experimental build (`patched-v3/` in the toolkit repo) tried to fix the duplicate by additionally redirecting `R5Requirement_CanOpenShipDockManagement` to an always-true requirement. That made the DockManagement option visible to everyone, which did not reduce the prompt count for owners — the duplicate bug was untouched. v1.1 (Path E, helm-level cut) supersedes and drops that attempt.
 
-### Pending
-- Dedicated-server cross-host smoke test with a remote client (files deployed to the dedicated server, needs server restart + friend's client also installing the v1.1 triple).
-- Nexus Mods upload of the v1.1.0 file (Nexus supports automated updates via its Upload API for existing mod pages; mod page is already live at https://www.nexusmods.com/windrose/mods/147).
+### Completed (post-release)
+- Dedicated-server cross-host smoke test passed (2026-04-25). All four test-matrix cases verified with a remote client.
+- Nexus Mods v1.1.0 upload completed (2026-04-22).
 
 ## [0.1.0] - 2026-04-22 — Initial release
 
