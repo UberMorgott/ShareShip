@@ -10,7 +10,7 @@ In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q*
 - Opens the full management UI: cargo hold, upgrades, slots, and other owner-only views.
 - **Server-authoritative** — the dedicated server's copy is what matters. Clients who also install the pak additionally see the Q prompt render locally on non-owned ships.
 - **No Lua, no UE4SS, no runtime injection.** ShareShip is a pure cooked-asset override, so it coexists with Windrose's anti-cheat (which does not scan cooked pak contents).
-- Tiny. Total install size is **~5.3 KB** (single file: `ShareShip_P.pak`).
+- Tiny. Total install size is **~3.4 KB** (three files: `.pak` + `.ucas` + `.utoc`).
 
 ## Install
 
@@ -19,14 +19,14 @@ In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q*
 
 **Steps**
 1. Download `ShareShip.zip` from the latest [Release](../../releases).
-2. Extract it. You will get `ShareShip_P.pak`.
-3. Place the file at:
+2. Extract it. You will get three files: `ShareShip_P.pak`, `ShareShip_P.ucas`, and `ShareShip_P.utoc`.
+3. Place **all three files** at:
    ```
-   <Windrose install>\R5\Content\Paks\~mods\ShareShip\ShareShip_P.pak
+   <Windrose install>\R5\Content\Paks\~mods\ShareShip\
    ```
    Create the `~mods` and `ShareShip` subfolders if they don't exist.
 
-   > **Upgrading from v1.1.x?** Delete the old `ShareShip_P.ucas` and `ShareShip_P.utoc` files from the same folder. v1.2 uses a single `.pak` file only.
+   > **Upgrading from v1.2.0?** Add back the `.ucas` and `.utoc` files — all three are required.
 4. For multiplayer, the **dedicated server** must also have the mod. If you run the server from Steam, the path is:
    ```
    <server install>\R5\Content\Paks\~mods\ShareShip\
@@ -40,9 +40,9 @@ In vanilla Windrose only the owner (or active helmsman) of a ship can press **Q*
 
 ## How it works (brief)
 
-ShareShip ships two cooked-asset overrides inside a single legacy V8B pak:
+ShareShip ships two cooked-asset overrides inside an IoStore triple (`.pak` + `.ucas` + `.utoc`):
 
-1. **`DA_InteractionOption_ShipManagement`** — the patched `.uasset` differs from the retail file by **exactly two bytes** in the `FObjectImport` table: the entry that used to point at `R5Requirement_CanOpenShipManagement` (the owner check) now points at `R5IsTargetAliveRequirement`, which is already imported by the same DataAsset and returns true for any live ship. The interaction's other gating requirements (boarding state, target-alive, common-composition) are kept intact, so the only behavioural change is that the owner check is bypassed.
+1. **`DA_InteractionOption_ShipManagement`** — the patched `.uasset` differs from the retail file by **seven bytes** across the `FObjectImport` table, `FObjectExport` table, and preload dependencies. All six references to `R5Requirement_CanOpenShipManagement` (the owner check) are redirected to `R5IsTargetAliveRequirement`, which is already imported by the same DataAsset and returns true for any live ship. This complete redirect satisfies the `AsyncLoading2` validation (`TemplateObject->IsA(LoadClass)`) introduced in the 2026-04-30 engine update. The interaction's other gating requirements (boarding state, target-alive, common-composition) are kept intact, so the only behavioural change is that the owner check is bypassed.
 2. **`DA_InteractionTarget_ShipSteeringWheel`** (new in v1.1) — a 4-byte edit to the helm target's `.uexp` sets the third `FPackageIndex` entry in the helm's `Options` TArray to null. That entry used to reference `DA_InteractionOption_ShipDockManagement`, the dock-specific Management option. With it nulled, the engine's UI skips the empty slot and the helm only ever advertises two options (Steering on E, Management on Q) instead of three. This removes the v1.0 duplicate-Q-prompt regression that appeared when a ship was docked.
 
 The repo at [`uberMorgott/Windrose-Modding-Toolkit`](https://github.com/uberMorgott/Windrose-Modding-Toolkit) contains the full reverse-engineering notes, SDK-dump workflow, and the Go-based `.uasset` / `.uexp` patch utilities used to produce this override.
@@ -70,7 +70,7 @@ Full evidence with direct comment citations is in the [sticky comment on Nexus](
 
 ## Build from source
 
-See [`build/README.md`](build/README.md) for prerequisites, extraction of the retail `.uasset`, the 2-byte redirect patch, and repacking the legacy V8B pak with `repak`.
+See [`build/README.md`](build/README.md) for prerequisites, extraction of the retail `.uasset`, the 7-byte redirect patch, and repacking the IoStore triple with `retoc`.
 
 ## License
 

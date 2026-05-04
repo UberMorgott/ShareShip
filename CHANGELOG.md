@@ -4,7 +4,21 @@ All notable changes to ShareShip are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-05-04 — Format fix for 2026-04-30 engine update
+## [1.3.0] - 2026-05-04 — Complete class reference fix for engine update
+
+### Fixed
+- **v1.2.0 legacy pak had no effect.** IoStore assets take priority over legacy V8B paks in UE 5.6 — the mod mounted but the engine always loaded the vanilla asset from the game's IoStore container, ignoring the override entirely.
+- **Complete 7-byte patch replaces the original 2-byte patch.** The v1.0 patch only redirected the CDO import (Import[16]). The 2026-04-30 engine update's `AsyncLoading2` validation also checks the CLASS import (Import[3]) and the export's `ClassIndex`/`TemplateIndex` references. All six references to `R5Requirement_CanOpenShipManagement` are now redirected to `R5IsTargetAliveRequirement`:
+  - Import[3] ObjectName (class import)
+  - Import[16] ClassName + ObjectName (CDO import, original v1.0 patch)
+  - Export[2] ClassIndex + TemplateIndex
+  - Preload dependency entries
+
+### Changed
+- **Format reverted to IoStore triple** (`.pak` + `.ucas` + `.utoc`, ~3.4 KB total). Legacy V8B format (v1.2) cannot override IoStore-packaged vanilla assets.
+- Users upgrading from v1.2.0 must add back the `.ucas` and `.utoc` files alongside the `.pak`.
+
+## [1.2.0] - 2026-05-04 — Format fix for 2026-04-30 engine update (SUPERSEDED by v1.3.0)
 
 ### Fixed
 - **Mod broken after Windrose engine update (2026-04-30).** The update tightened AsyncLoading2's export validation (`TemplateObject->IsA(LoadClass)`) which rejected the patched import redirect in Zen (IoStore) format. The export was skipped entirely, breaking both owner and non-owner ship management access. Repackaged as legacy V8B `.pak` which uses a different linker that resolves the redirect cleanly.
@@ -12,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - **Format switched from IoStore triple to single legacy V8B `.pak`.** Install now requires only one file (`ShareShip_P.pak`, ~5.3 KB) instead of three (`.pak` + `.ucas` + `.utoc`). Users upgrading from v1.1.x must delete the old `.ucas` and `.utoc` files.
 - Both patch mechanisms (v1.0 import redirect + v1.1 helm Options null-patch) are preserved unchanged in the legacy format. No gameplay or UX changes.
+
+### Note
+- **This release was ineffective.** Legacy V8B paks cannot override IoStore-packaged vanilla assets in UE 5.6. Superseded by v1.3.0.
 
 ### Tested
 - Client log verification (2026-05-04): pak mounts cleanly, zero `CreateExport` errors, zero `template object type` warnings.

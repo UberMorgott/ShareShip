@@ -4,23 +4,29 @@ Authoritative description of both patches applied to retail cooked DataAssets. T
 
 ---
 
-## Patch 1: `DA_InteractionOption_ShipManagement` (v1.0+)
+## Patch 1: `DA_InteractionOption_ShipManagement` (v1.0 → v1.3)
 
 The core patch that gates opening the ship-management UI (Q on the helm).
 
 ## Summary
 
 - **Source asset:** `/Game/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement` (cooked `.uasset` + `.uexp`, extracted from retail Windrose IoStore paks).
-- **Change:** redirect one `FObjectImport` entry from `R5Requirement_CanOpenShipManagement` to `R5IsTargetAliveRequirement`.
-- **Diff size:** exactly 2 bytes in the `.uasset`. The `.uexp` is verbatim.
-- **Why `R5IsTargetAliveRequirement`?** It's already imported by this same DataAsset (it's the `IsTargetAliveRequirement` slot of the interaction's `PrimaryRequirement` composition), so the engine has nothing new to resolve at load time. An earlier attempt (v1) targeted `R5Requirement_InstigatorIsPlayerControlled` instead; that class is imported by only one cooked asset in the whole game, and loading it into this new context made the listen-server hang during startup.
+- **Change:** redirect ALL six references to `R5Requirement_CanOpenShipManagement` to `R5IsTargetAliveRequirement` — across the `FObjectImport` table, `FObjectExport` table, and preload dependencies.
+- **Diff size:** exactly 7 bytes in the `.uasset`. The `.uexp` is verbatim.
+- **Why the complete redirect?** The 2026-04-30 engine update tightened `AsyncLoading2`'s export validation: it now checks `TemplateObject->IsA(LoadClass)`, meaning the class import (Import[3]), the CDO import (Import[16]), and the export's `ClassIndex`/`TemplateIndex` must all agree. The original v1.0 2-byte patch only redirected Import[16] (the CDO), leaving Import[3] (the class) and Export[2] referencing the old class. The engine detected the mismatch and skipped the export entirely.
+- **Why `R5IsTargetAliveRequirement`?** It's already imported by this same DataAsset (it's the `IsTargetAliveRequirement` slot of the interaction's `PrimaryRequirement` composition), so the engine has nothing new to resolve at load time.
 
-## Byte-level diff
+## Byte-level diff (v1.3, complete patch)
 
-| Offset (hex) | Field                                      | Before | After |
-|-------------:|--------------------------------------------|-------:|------:|
-| `0x7E6`      | `FObjectImport[16].ClassName.FName.index`  | 5      | 4     |
-| `0x7F2`      | `FObjectImport[16].ObjectName.FName.index` | 29     | 28    |
+| Offset (hex) | 1-based decimal | Field                                        | Before (octal) | After (octal) |
+|-------------:|----------------:|----------------------------------------------|----------------:|--------------:|
+| `0x652`      | 1619            | `FObjectImport[3].ObjectName.FName.index`    | 5               | 4             |
+| `0x7E6`      | 2023            | `FObjectImport[16].ClassName.FName.index`    | 5               | 4             |
+| `0x7F2`      | 2035            | `FObjectImport[16].ObjectName.FName.index`   | 35 (=29)        | 34 (=28)      |
+| `0x91E`      | 2335            | `FObjectExport[2].ClassIndex`                | 374             | 375           |
+| `0x926`      | 2343            | `FObjectExport[2].TemplateIndex`             | 357             | 360           |
+| `0xA7A`      | 2683            | `PreloadDependencies` entry (ClassIndex ref) | 374             | 375           |
+| `0xA7E`      | 2687            | `PreloadDependencies` entry (TemplateIndex ref)| 357           | 360           |
 
 Name-table resolution (indices into the `.uasset`'s FName table):
 
@@ -29,7 +35,12 @@ Name-table resolution (indices into the `.uasset`'s FName table):
 - name[28] = `Default__R5IsTargetAliveRequirement`
 - name[29] = `Default__R5Requirement_CanOpenShipManagement`
 
-After the patch, `FObjectImport[16]` resolves to `/Script/R5.R5IsTargetAliveRequirement` (class) with CDO `Default__R5IsTargetAliveRequirement` instead of the owner-check pair.
+### What each byte does
+
+1. **Import[3]** (offset `0x652`): the CLASS import — the engine resolves this to the UClass object. Changed from `R5Requirement_CanOpenShipManagement` to `R5IsTargetAliveRequirement`.
+2. **Import[16]** (offsets `0x7E6`, `0x7F2`): the CDO import — ClassName + ObjectName. This was the original v1.0 2-byte patch. Changed from `R5Requirement_CanOpenShipManagement` / `Default__R5Requirement_CanOpenShipManagement` to `R5IsTargetAliveRequirement` / `Default__R5IsTargetAliveRequirement`.
+3. **Export[2]** (offsets `0x91E`, `0x926`): `ClassIndex` and `TemplateIndex` on the export record. These point at the import entries and must reference the same class as the imports for `IsA()` validation to pass.
+4. **PreloadDependencies** (offsets `0xA7A`, `0xA7E`): preload dependency entries that mirror the export's class/template references.
 
 ## `FObjectImport[16]` record layout
 
@@ -49,7 +60,7 @@ The `Imports` array has 20 entries total, spanning `[ImportOffset=0x5DE, ExportO
 
 - **Names table** — byte-identical to source.
 - **Summary header offsets** — `TotalHeaderSize`, `ExportOffset`, `ImportOffset`, `DependsOffset`, `AssetRegistryDataOffset`, etc.
-- **Export table**, **DependsMap**, **AssetRegistryData**, **PreloadDependencies**.
+- **DependsMap**, **AssetRegistryData**.
 - **`.uexp`** — copied verbatim (142 bytes).
 
 Output `.uasset` size: 2736 bytes, same as source.
@@ -79,22 +90,17 @@ The duplicate `IsTargetAlive` check is redundant but harmless: it returns true w
 ```bash
 cmp -l <retail>/DA_InteractionOption_ShipManagement.uasset \
        DA_InteractionOption_ShipManagement.uasset
-# Expected (1-based decimal offsets):
-#   2023   5   4
-#   2035  35  34
-# I.e. 0x7E6: 5 -> 4, and 0x7F2: octal 35=29 -> octal 34=28.
+# Expected (1-based decimal offsets, values in octal):
+#   1619   5   4    (0x652: Import[3] ObjectName)
+#   2023   5   4    (0x7E6: Import[16] ClassName)
+#   2035  35  34    (0x7F2: Import[16] ObjectName)
+#   2335 374 375    (0x91E: Export[2] ClassIndex)
+#   2343 357 360    (0x926: Export[2] TemplateIndex)
+#   2683 374 375    (0xA7A: PreloadDep ClassIndex ref)
+#   2687 357 360    (0xA7E: PreloadDep TemplateIndex ref)
 ```
 
-### Names-table dump identical
-
-```bash
-diff \
-  <(dump_uasset_names.exe -in <retail>/DA_InteractionOption_ShipManagement.uasset) \
-  <(dump_uasset_names.exe -in DA_InteractionOption_ShipManagement.uasset)
-# Expected: only the "path" line differs.
-```
-
-### `retoc` Legacy → Zen round-trip (structural validator)
+### `retoc` round-trip (structural validator)
 
 ```bash
 mkdir -p /tmp/validate/R5/Content/Gameplay/Interaction/Options
@@ -102,17 +108,6 @@ cp DA_InteractionOption_ShipManagement.{uasset,uexp} \
    /tmp/validate/R5/Content/Gameplay/Interaction/Options/
 retoc.exe to-zen --version UE5_6 /tmp/validate /tmp/validate_out.utoc
 # Expected: silent success, producing .utoc + .ucas + .pak.
-```
-
-### Pak listing
-
-```bash
-repak.exe list ShareShip_P.pak
-# Expected exactly:
-#   R5/Content/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement.uasset
-#   R5/Content/Gameplay/Interaction/Options/DA_InteractionOption_ShipManagement.uexp
-#   R5/Content/Gameplay/Interaction/Params/Ship/DA_InteractionTarget_ShipSteeringWheel.uasset
-#   R5/Content/Gameplay/Interaction/Params/Ship/DA_InteractionTarget_ShipSteeringWheel.uexp
 ```
 
 ## `.uexp` risk analysis
@@ -154,7 +149,7 @@ Produced by `helm_options_null.go` / `patch_helm_options_null.exe` from the [Win
 
 | File | Size | Notes |
 |------|-----:|-------|
-| `DA_InteractionOption_ShipManagement.uasset`         | 2736 B | 2 bytes differ from retail (offsets `0x7E6`, `0x7F2`). Patch 1. |
+| `DA_InteractionOption_ShipManagement.uasset`         | 2736 B | 7 bytes differ from retail (offsets `0x652`, `0x7E6`, `0x7F2`, `0x91E`, `0x926`, `0xA7A`, `0xA7E`). Patch 1. |
 | `DA_InteractionOption_ShipManagement.uexp`           |  142 B | Verbatim copy of retail. |
 | `DA_InteractionTarget_ShipSteeringWheel.uasset`      |  —     | Byte-identical to retail. |
 | `DA_InteractionTarget_ShipSteeringWheel.uexp`        |   28 B | 4 bytes differ from retail (offset `0x14-0x17`). Patch 2. |

@@ -2,14 +2,13 @@
 
 This document describes how to reproduce `ShareShip_P.pak` from retail Windrose assets. The pre-built output lives in [`../ShareShip/`](../ShareShip/) and the patched intermediate sources are in [`sources/`](sources/). See [`sources/BUILD-NOTES.md`](sources/BUILD-NOTES.md) for the byte-level specification of both patches.
 
-> **Note (v1.2.0):** The mod was previously packaged as an IoStore triple (`.pak` + `.ucas` + `.utoc`) using `retoc to-zen`. After the 2026-04-30 Windrose engine update tightened AsyncLoading2's export validation, the Zen format rejects the patched import redirect. v1.2.0 switches to a single legacy V8B `.pak` built with `repak pack`, which resolves the redirect cleanly via the legacy linker.
+> **Note (v1.3.0):** v1.2.0 attempted to switch to legacy V8B `.pak` format to work around a `AsyncLoading2` validation error, but legacy paks cannot override IoStore-packaged vanilla assets in UE 5.6. v1.3.0 returns to IoStore format with a complete 7-byte patch that redirects ALL class references consistently, satisfying the validation.
 
 ## Prerequisites
 
 | Tool | Why | Where to get it |
 |------|-----|-----------------|
-| `repak.exe` | Packs loose `.uasset`/`.uexp` files into a legacy V8B `.pak`. | [trumank/repak](https://github.com/trumank/repak) — download the Windows release. |
-| `retoc.exe` | Extracts retail IoStore paks to legacy format for patching. | [trumank/retoc](https://github.com/trumank/retoc) — download the Windows release. |
+| `retoc.exe` | Extracts retail IoStore paks to legacy format for patching, and repacks patched files into IoStore triple. | [trumank/retoc](https://github.com/trumank/retoc) — download the Windows release. |
 | Go 1.22+ | Builds the `.uasset` patch utilities. | [go.dev/dl](https://go.dev/dl/). |
 | `patch_uasset_redirect.exe` | Swaps two FName indices inside the `FObjectImport` table (the core of the patch). | Clone [uberMorgott/Windrose-Modding-Toolkit](https://github.com/uberMorgott/Windrose-Modding-Toolkit), then `go build -C environment/tools/scripts/patch_uasset_fname -o ../patch_uasset_redirect.exe redirect.go`. |
 | A Windrose install | Source of the retail `DA_InteractionOption_ShipManagement.uasset`. | Steam AppID `3041230`. |
@@ -46,7 +45,7 @@ patch_uasset_redirect.exe `
   -v
 ```
 
-The tool locates the `FObjectImport` entry whose `ClassName` is `R5Requirement_CanOpenShipManagement` and rewrites two `FName.index` fields to point at `R5IsTargetAliveRequirement` / `Default__R5IsTargetAliveRequirement` instead. It refuses to patch any asset that doesn't contain all four target name strings. Exactly two bytes change: offsets `0x7E6` and `0x7F2`.
+The tool locates all references to `R5Requirement_CanOpenShipManagement` — in both `FObjectImport` entries (class import and CDO import), the `FObjectExport` table (`ClassIndex` and `TemplateIndex`), and preload dependency entries — and rewrites them to point at `R5IsTargetAliveRequirement`. Exactly seven bytes change from the retail file. See [`sources/BUILD-NOTES.md`](sources/BUILD-NOTES.md) for the complete byte-level specification.
 
 ### 3. Copy the `.uexp` verbatim
 
@@ -75,29 +74,34 @@ Copy-Item "<scratch>\patched\DA_InteractionTarget_ShipSteeringWheel.uexp" `
   "<scratch>\staging\R5\Content\Gameplay\Interaction\Params\Ship\"
 ```
 
-### 5. Pack the legacy V8B pak
+### 5. Pack the IoStore triple
 
 ```powershell
-repak.exe pack --version V8B `
+retoc.exe to-zen --version UE5_6 `
   "<scratch>\staging" `
-  "<scratch>\out\ShareShip_P.pak"
+  "<scratch>\out\ShareShip_P.utoc"
 ```
 
-Output: one file — `ShareShip_P.pak` (~5.3 KB).
+Output: three files — `ShareShip_P.utoc`, `ShareShip_P.ucas`, and `ShareShip_P.pak` (~3.4 KB total).
 
-Drop it into the [`ShareShip/`](../ShareShip/) folder (or directly into `<Windrose install>\R5\Content\Paks\~mods\ShareShip\`) to use the freshly-built mod.
+Drop all three into the [`ShareShip/`](../ShareShip/) folder (or directly into `<Windrose install>\R5\Content\Paks\~mods\ShareShip\`) to use the freshly-built mod.
 
-> **Why not IoStore?** Prior to v1.2.0 the mod was packed as an IoStore triple using `retoc to-zen`. The 2026-04-30 Windrose engine update tightened `AsyncLoading2`'s export validation (`TemplateObject->IsA(LoadClass)`), which rejects the patched import redirect in Zen format. Legacy V8B paks use a different linker path that resolves the redirect cleanly.
+> **Why IoStore and not legacy V8B?** Windrose ships its vanilla assets in IoStore (Zen) containers. In UE 5.6, IoStore assets take priority over legacy V8B paks, so a legacy pak override is silently ignored. The mod must be packaged as an IoStore triple to actually override the vanilla asset.
 
 ## Verification
 
-**Byte diff against retail.** The patch must change exactly two bytes:
+**Byte diff against retail.** The patch must change exactly seven bytes:
 
 ```bash
 cmp -l <retail-uasset> <patched-uasset>
-# Expected:
-#   2023   5   4    (offset 0x7E6: ClassName FName index  5 -> 4)
-#   2035  35  34    (offset 0x7F2: ObjectName FName index 29 -> 28, octal)
+# Expected (1-based decimal offsets, values in octal):
+#   1619   5   4    (offset 0x652: Import[3] ObjectName FName index 5 -> 4)
+#   2023   5   4    (offset 0x7E6: Import[16] ClassName FName index 5 -> 4)
+#   2035  35  34    (offset 0x7F2: Import[16] ObjectName FName index 29 -> 28)
+#   2335 374 375    (offset 0x91E: Export[2] ClassIndex)
+#   2343 357 360    (offset 0x926: Export[2] TemplateIndex)
+#   2683 374 375    (offset 0xA7A: PreloadDependency)
+#   2687 357 360    (offset 0xA7E: PreloadDependency)
 ```
 
 **Runtime mount check.** On game start, `R5\Saved\Logs\R5.log` should contain:
